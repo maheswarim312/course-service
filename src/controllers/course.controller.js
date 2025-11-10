@@ -3,8 +3,27 @@ const { Course, Material, Schedule } = db;
 
 export const createCourse = async (req, res) => {
   try {
-    const course = await Course.create(req.body);
-    res.status(201).json(course);
+    const { title, description } = req.body;
+    const creatorRole = req.user.role;
+    const creatorId = req.user.id;
+
+    let teacher_id = null; // Default
+
+    if (creatorRole === 'pengajar') {
+      teacher_id = creatorId;
+    } else if (creatorRole === 'admin') {
+      teacher_id = req.body.teacher_id || null;
+    }
+
+    const course = await Course.create({
+      title,
+      description,
+      teacher_id
+    });
+
+    const newCourse = await Course.findByPk(course.id, { include: ['materials', 'schedule'] });
+    res.status(201).json(newCourse);
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -31,11 +50,32 @@ export const getCourseById = async (req, res) => {
 
 export const updateCourse = async (req, res) => {
   try {
-    const [updated] = await Course.update(req.body, { where: { id: req.params.id } });
-    if (!updated) return res.status(404).json({ message: 'Course not found' });
+    const courseId = req.params.id;
+    const editorRole = req.user.role;
+    const editorId = req.user.id;
 
-    const updatedCourse = await Course.findByPk(req.params.id, { include: ['materials', 'schedule'] });
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+
+    const dataToUpdate = req.body;
+
+    if (editorRole === 'pengajar') {
+      if (course.teacher_id !== editorId) {
+        return res.status(403).json({ message: "Akses ditolak: Pengajar hanya bisa meng-edit course miliknya sendiri." });
+      }
+
+      if (dataToUpdate.teacher_id && dataToUpdate.teacher_id !== editorId) {
+        return res.status(403).json({ message: "Akses ditolak: Pengajar tidak bisa mengganti 'teacher_id'. Hanya Admin yang bisa." });
+      }
+
+      dataToUpdate.teacher_id = editorId; 
+    }
+
+    const [updated] = await Course.update(dataToUpdate, { where: { id: courseId } });
+
+    const updatedCourse = await Course.findByPk(courseId, { include: ['materials', 'schedule'] });
     res.json(updatedCourse);
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
