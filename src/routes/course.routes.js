@@ -5,7 +5,9 @@ import {
   getCourseById, 
   updateCourse, 
   deleteCourse,
-  assignTeacher
+  assignTeacher,
+  addMaterial,
+  deleteMaterial
 } from '../controllers/course.controller.js';
 
 import { checkAuth, isAdmin, isTeacherOrAdmin } from '../middleware/auth.middleware.js';
@@ -22,4 +24,8 @@ router.delete('/:id', checkAuth, isTeacherOrAdmin, deleteCourse);
 
 // --- Rute Admin Only ---
 router.post('/:id/assign-teacher', checkAuth, isAdmin, assignTeacher);
+
+router.post('/:courseId/materials', checkAuth, isTeacherOrAdmin, addMaterial);
+router.delete('/materials/:materialId', checkAuth, isTeacherOrAdmin, deleteMaterial);
+
 export default router;

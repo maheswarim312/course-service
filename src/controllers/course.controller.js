@@ -18,7 +18,11 @@ export const createCourse = async (req, res) => {
     const course = await Course.create({
       title,
       description,
-      teacher_id
+      teacher_id,
+      schedule: schedule,
+      materials: materials || [],
+    }, {
+      include: ['schedule', 'materials']
     });
 
     const newCourse = await Course.findByPk(course.id, { include: ['materials', 'schedule'] });
@@ -48,6 +52,7 @@ export const getCourseById = async (req, res) => {
   }
 };
 
+
 export const updateCourse = async (req, res) => {
   try {
     const courseId = req.params.id;
@@ -57,27 +62,38 @@ export const updateCourse = async (req, res) => {
     const course = await Course.findByPk(courseId);
     if (!course) return res.status(404).json({ message: 'Course not found' });
 
-    const dataToUpdate = req.body;
+    const { title, description, teacher_id, schedule } = req.body;
+    let dataToUpdate = { title, description };
 
     if (editorRole === 'pengajar') {
       if (course.teacher_id !== editorId) {
         return res.status(403).json({ message: "Akses ditolak: Pengajar hanya bisa meng-edit course miliknya sendiri." });
       }
-
-      if (dataToUpdate.teacher_id && dataToUpdate.teacher_id !== editorId) {
+      if (teacher_id && teacher_id !== editorId) {
         return res.status(403).json({ message: "Akses ditolak: Pengajar tidak bisa mengganti 'teacher_id'. Hanya Admin yang bisa." });
       }
-
-      dataToUpdate.teacher_id = editorId; 
+      dataToUpdate.teacher_id = editorId;
+    } else if (editorRole === 'admin') {
+      if (teacher_id) {
+        dataToUpdate.teacher_id = teacher_id;
+      }
     }
 
-    const [updated] = await Course.update(dataToUpdate, { where: { id: courseId } });
+    await Course.update(dataToUpdate, { where: { id: courseId } });
+
+    if (schedule) {
+      await Schedule.upsert({
+        course_id: courseId,
+        day: schedule.day,
+        time: schedule.time
+      });
+    }
 
     const updatedCourse = await Course.findByPk(courseId, { include: ['materials', 'schedule'] });
     res.json(updatedCourse);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Gagal update course", error: err.message, errors: err.errors });
   }
 };
 
@@ -109,5 +125,65 @@ export const assignTeacher = async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// [POST] /api/courses/:courseId/materials
+export const addMaterial = async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+    const { title, type, url } = req.body;
+    const { id: userId, role: userRole } = req.user; 
+
+    if (userRole === 'pengajar') {
+      const course = await Course.findByPk(courseId);
+      if (!course) return res.status(404).json({ message: "Course not found" });
+
+      if (course.teacher_id !== userId) {
+        return res.status(403).json({ message: "Akses ditolak: Pengajar hanya bisa menambah material ke course miliknya." });
+      }
+    }
+
+    const material = await Material.create({
+      title,
+      type,
+      url,
+      course_id: courseId
+    });
+
+    res.status(201).json(material);
+
+  } catch (err) {
+    res.status(500).json({ message: "Gagal menambah material", error: err.message });
+  }
+};
+
+// [DELETE] /api/courses/materials/:materialId
+export const deleteMaterial = async (req, res) => {
+  try {
+    const materialId = req.params.materialId;
+    const { id: userId, role: userRole } = req.user;
+
+    const material = await Material.findByPk(materialId, {
+      include: {
+        model: Course,
+        as: 'course' 
+      }
+    });
+
+    if (!material) return res.status(404).json({ message: "Material not found" });
+
+    if (userRole === 'pengajar') {
+      if (material.course.teacher_id !== userId) {
+        return res.status(403).json({ message: "Akses ditolak: Pengajar hanya bisa menghapus material dari course miliknya." });
+      }
+    }
+
+    await material.destroy();
+
+    res.json({ message: 'Material deleted successfully' });
+
+  } catch (err) {
+    res.status(500).json({ message: "Gagal menghapus material", error: err.message });
   }
 };
