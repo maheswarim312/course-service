@@ -3,7 +3,7 @@ const { Course, Material, Schedule } = db;
 
 export const createCourse = async (req, res) => {
   try {
-    const { title, description } = req.body;
+    const { title, description, schedule, materials } = req.body;
     const creatorRole = req.user.role;
     const creatorId = req.user.id;
 
