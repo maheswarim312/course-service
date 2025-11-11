@@ -20,12 +20,13 @@ export const checkAuth = async (req, res, next) => {
       }
     });
 
-    if (authResponse.status === 200) {
-      req.user = authResponse.data;
-      next();
-    } else {
-      res.status(401).json({ message: "Token tidak valid." });
-    }
+    if (authResponse.status === 200 && authResponse.data.status === 'success') {
+      req.user = authResponse.data.data;
+      next();
+    } else {
+      // Kirim pesan error dari API (jika ada)
+      res.status(401).json({ message: authResponse.data.message || "Token tidak valid." });
+    }
 
   } catch (error) {
     if (error.response && error.response.status === 401) {
