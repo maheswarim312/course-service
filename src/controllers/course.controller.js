@@ -50,7 +50,14 @@ export const createCourse = async (req, res) => {
 
 export const getAllCourses = async (req, res) => {
   try {
+    const { teacher_id } = req.query;
+    const whereClause = {};
+    if (teacher_id) {
+      whereClause.teacher_id = teacher_id;
+    }
+
     const courses = await Course.findAll({
+      where: whereClause,
       include: ["materials", "schedule"],
     });
     res.json({
