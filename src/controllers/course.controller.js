@@ -90,8 +90,8 @@ export const getCourseById = async (req, res) => {
           }
         );
 
-        if (userRes.data && userRes.data.name) {
-          instructorName = userRes.data.name;
+        if (userRes.data.status === "success" && userRes.data.data.name) {
+          instructorName = userRes.data.data.name;
         }
       } catch (err) {
         console.error("Gagal fetch instructor name:", err.message);
@@ -134,22 +134,18 @@ export const updateCourse = async (req, res) => {
 
     if (editorRole === "pengajar") {
       if (course.teacher_id !== editorId) {
-        return res
-          .status(403)
-          .json({
-            status: "error",
-            message:
-              "Akses ditolak: Pengajar hanya bisa meng-edit course miliknya sendiri.",
-          });
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Akses ditolak: Pengajar hanya bisa meng-edit course miliknya sendiri.",
+        });
       }
       if (teacher_id && teacher_id !== editorId) {
-        return res
-          .status(403)
-          .json({
-            status: "error",
-            message:
-              "Akses ditolak: Pengajar tidak bisa mengganti 'teacher_id'. Hanya Admin yang bisa.",
-          });
+        return res.status(403).json({
+          status: "error",
+          message:
+            "Akses ditolak: Pengajar tidak bisa mengganti 'teacher_id'. Hanya Admin yang bisa.",
+        });
       }
       dataToUpdate.teacher_id = editorId;
     } else if (editorRole === "admin") {
@@ -195,13 +191,11 @@ export const deleteCourse = async (req, res) => {
     }
 
     if (req.user.role === "pengajar" && course.teacher_id !== req.user.id) {
-      return res
-        .status(403)
-        .json({
-          status: "error",
-          message:
-            "Akses ditolak: Pengajar hanya bisa menghapus course miliknya.",
-        });
+      return res.status(403).json({
+        status: "error",
+        message:
+          "Akses ditolak: Pengajar hanya bisa menghapus course miliknya.",
+      });
     }
 
     await course.destroy(); // Hapus yg sudah ditemukan
@@ -279,13 +273,11 @@ export const addMaterial = async (req, res) => {
       data: material,
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Gagal menambahkan material",
-        error: err.message,
-      });
+    res.status(500).json({
+      status: "error",
+      message: "Gagal menambahkan material",
+      error: err.message,
+    });
   }
 };
 
